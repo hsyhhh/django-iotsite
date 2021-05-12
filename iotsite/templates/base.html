@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    
+    <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap-clearmin.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/roboto.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/material-design.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/small-n-flat.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/font-awesome.min.css' %}">
+    {% block css %}
+    {% endblock %}
+    <title>物联网设备平台</title>
+  </head>
+  <body class="cm-no-transition cm-1-navbar">
+    <div id="cm-menu">
+      <nav class="cm-navbar cm-navbar-primary">
+        <div class="cm-flex"><h1>物联网设备平台</h1></div>
+        <div class="btn btn-primary md-menu-white" data-toggle="cm-menu"></div>
+      </nav>
+      <div id="cm-menu-content">
+        <div id="cm-menu-items-wrapper">
+          <div id="cm-menu-scroller">
+            {% block menu_scroller %}
+            {% endblock %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% block content %}
+    {% endblock %}
+
+    <script src="{% static 'js/lib/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.mousewheel.min.js' %}"></script>
+    <script src="{% static 'js/jquery.cookie.min.js' %}"></script>
+    <script src="{% static 'js/fastclick.min.js' %}"></script>
+    <script src="{% static 'js/bootstrap.min.js' %}"></script>
+    <script src="{% static 'js/clearmin.min.js' %}"></script>
+
+    {% block js %}
+    {% endblock %}
+  </body>
+</html>

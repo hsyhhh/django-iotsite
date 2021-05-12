@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block menu_scroller %}
+<ul class="cm-menu-items">
+	<li><a href="{% url 'index' %}" class="sf-house">主页</a></li>
+	<li class="active"><a href="{% url 'profile' %}" class="sf-profile">我的账号</a></li>
+	<li><a href="#" class="sf-wrench">我的设备</a></li>
+
+	<li class="cm-submenu">
+		<a class="sf-device-tablet">设备列表<span class="caret"></span></a>
+		<ul>
+			<li><a href="#">device 1</a></li>
+			<li><a href="#">device 2</a></li>
+			<li><a href="#">device 3</a></li>
+		</ul>
+	</li>
+</ul>
+{% endblock %}
+
+{% block css %}
+<style type="text/css">
+.bio-row {
+    width: 50%;
+    float: left;
+    margin-bottom: 10px;
+    padding:0 15px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<header id="cm-header">
+	<nav class="cm-navbar cm-navbar-primary">
+		<div class="btn btn-primary md-menu-white hidden-md hidden-lg" data-toggle="cm-menu">
+		</div>
+		<div class="cm-flex">
+			<h1>我的账号</h1>
+		</div>
+		<div class="dropdown pull-right">
+			<button class="btn btn-primary md-account-circle-white" data-toggle="dropdown"></button>
+			<ul class="dropdown-menu">
+				<li class="disabled text-center">
+				{% if user.is_authenticated %}
+					<a style="cursor:default;"><strong>{{ user.get_username }}</strong></a>
+				{% else %}
+					<a style="cursor:default;"><strong>游客</strong></a>
+				{% endif %}
+				</li>
+				<li class="divider"></li>
+				{% if not user.is_authenticated %}
+				<li>
+					<a href="{% url 'login' %}"><i class="fa fa-fw fa-user"></i> 登录</a>
+				</li>
+				<li>
+					<a href="{% url 'signup' %}"><i class="fa fa-fw fa-user-plus"></i> 注册</a>
+				</li>
+				{% else %}
+				<li>
+					<a href="#"><i class="fa fa-fw fa-user"></i> 我的账号</a>
+				</li>
+				<li>
+					<a href="{% url 'logout' %}"><i class="fa fa-fw fa-sign-out"></i> 登出</a>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+	</nav>
+</header>
+
+<div id="global">
+	<div class="container-fluid cm-container-white">
+
+	{% if not user.is_authenticated %}
+		<h2 style="margin-top:0;">是不是忘记登录了？</h2> 
+		<p>点击右上角小头像登录吧！</p>
+	{% else %}
+		<ul class="list-group">
+			<li class="list-group-item text-muted" contenteditable="false">账号信息</li>
+			<li class="list-group-item text-right"><span class="pull-left"><strong class="">用户名：</strong></span> {{ user.get_username }}</li>
+			<li class="list-group-item text-right"><span class="pull-left"><strong class="">邮箱：</strong></span> {{ user.email }}</li>
+				<li class="list-group-item text-right"><span class="pull-left"><strong class="">真实姓名：</strong></span>
+				{% if user.first_name %} {{ user.first_name }} {% else %} &nbsp; {% endif %}
+				</li>
+		</ul>
+		<hr class="half-rule">
+
+		<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#infoModal" data-whatever="@mdo">修改个人信息</button>
+		<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#pwdModal" data-whatever="@fat">修改密码</button>
+		
+		{% comment %} 修改个人信息的modal {% endcomment %}
+		<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModalLabel">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<h4 class="modal-title" id="infoModalLabel">修改个人信息</h4>
+			</div>
+			<div class="modal-body">
+				<form id="info-form" method="POST">
+				{% csrf_token %}
+				<div class="form-group">
+					<label for="username" class="control-label">用户名：</label>
+					<input type="text" class="form-control" id="id_username" name="username" value="{{ user.username }}" disabled>
+				</div>
+				<div class="form-group">
+					<label for="email" class="control-label">邮箱：</label>
+					<input type="email" class="form-control" id="id_email" name="email" value="{{ user.email }}">
+
+					<span class="help-block" style="color: red" id="alert_email">
+					{% if has_error and info_or_pwd == 0  %}
+						{{ error_msg }}
+					{% endif %}
+					</span>
+
+				</div>
+				<div class="form-group">
+					<label for="realname" class="control-label">真实姓名：</label>
+					<input type="text" class="form-control" id="id_realname" name="realname" value="{{ user.first_name }}">
+				</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+				<button type="button" onclick="info_form_submit()" class="btn btn-primary">确认修改</button>
+			</div>
+			</div>
+		</div>
+		</div>
+
+		{% comment %} 修改密码的modal {% endcomment %}
+		<div class="modal fade" id="pwdModal" tabindex="-1" role="dialog" aria-labelledby="pwdModalLabel">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<h4 class="modal-title" id="pwdModalLabel">修改密码</h4>
+			</div>
+			<div class="modal-body">
+				<form id="pwd-form" method="POST">
+				{% csrf_token %}
+				<div class="form-group">
+					<label for="username" class="control-label">您的用户名是：</label>
+					<input type="text" class="form-control" id="id_username" name="username" value="{{ user.username }}" disabled>
+				</div>
+				<div class="form-group">
+					<label for="oripwd" class="control-label">请输入原密码：</label>
+					<input type="password" class="form-control" id="id_oripwd" name="oripwd">
+
+					<span class="help-block" style="color: red" id="alert_oripwd">
+					{% if has_error and info_or_pwd == 1 and error_type == 0  %}
+						{{ error_msg }}
+					{% endif %}
+					</span>
+
+				</div>
+				<div class="form-group">
+					<label for="pwd1" class="control-label">请输入修改后的密码：</label>
+					<input type="password" class="form-control" id="id_pwd1" name="pwd1">
+
+					<span class="help-block" style="color: red" id="alert_oripwd">
+					{% if has_error and info_or_pwd == 1 and error_type == 2  %}
+						{{ error_msg }}
+					{% endif %}
+					</span>
+
+				</div>
+				<div class="form-group">
+					<label for="pwd2" class="control-label">请确认修改后的密码：</label>
+					<input type="password" class="form-control" id="id_pwd2" name="pwd2">
+
+					<span class="help-block" style="color: red" id="alert_oripwd">
+					{% if has_error and info_or_pwd == 1 and error_type == 1  %}
+						{{ error_msg }}
+					{% endif %}
+					</span>
+
+				</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+				<button type="button" onclick="pwd_form_submit()" class="btn btn-primary">确认修改</button>
+			</div>
+			</div>
+		</div>
+		</div>
+	
+	{% endif %}
+	</div>
+	
+	<footer class="cm-footer"><span class="pull-right">&copy; HSY Inc.</span></footer>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/profile.js' %}"></script>
+<script>
+	{% if has_error and info_or_pwd == 0 %}
+		$('#infoModal').modal('toggle');
+	{% elif has_error and info_or_pwd == 1 %}
+		$('#pwdModal').modal('toggle');
+	{% elif not has_error and info_or_pwd == 1%}
+		alert("密码修改成功！（无需重新登录）");
+	{% endif %}
+</script>
+{% endblock %}

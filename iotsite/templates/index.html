@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block menu_scroller %}
+<ul class="cm-menu-items">
+	<li class="active"><a href="{% url 'index' %}" class="sf-house">主页</a></li>
+	<li><a href="{% url 'profile' %}" class="sf-profile">我的账号</a></li>
+	<li><a href="#" class="sf-wrench">我的设备</a></li>
+
+	<li class="cm-submenu">
+		<a class="sf-device-tablet">设备列表<span class="caret"></span></a>
+		<ul>
+			<li><a href="#">device 1</a></li>
+			<li><a href="#">device 2</a></li>
+			<li><a href="#">device 3</a></li>
+		</ul>
+	</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<header id="cm-header">
+	<nav class="cm-navbar cm-navbar-primary">
+		<div class="btn btn-primary md-menu-white hidden-md hidden-lg" data-toggle="cm-menu">
+		</div>
+		<div class="cm-flex">
+			<h1>主页</h1>
+		</div>
+		<div class="dropdown pull-right">
+			<button class="btn btn-primary md-account-circle-white" data-toggle="dropdown"></button>
+			<ul class="dropdown-menu">
+				<li class="disabled text-center">
+				{% if user.is_authenticated %}
+					<a style="cursor:default;"><strong>{{ user.get_username }}</strong></a>
+				{% else %}
+					<a style="cursor:default;"><strong>游客</strong></a>
+				{% endif %}
+				</li>
+				<li class="divider"></li>
+				{% if not user.is_authenticated %}
+				<li>
+					<a href="{% url 'login' %}"><i class="fa fa-fw fa-user"></i> 登录</a>
+				</li>
+				<li>
+					<a href="{% url 'signup' %}"><i class="fa fa-fw fa-user-plus"></i> 注册</a>
+				</li>
+				{% else %}
+				<li>
+					<a href="{% url 'profile' %}"><i class="fa fa-fw fa-user"></i> 我的账号</a>
+				</li>
+				<li>
+					<a href="{% url 'logout' %}"><i class="fa fa-fw fa-sign-out"></i> 登出</a>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+	</nav>
+</header>
+
+<div id="global">
+	<div class="container-fluid cm-container-white">
+		<h2 style="margin-top:0;">欢迎来到物联网设备在线监测平台！</h2> 
+		{% if not user.is_authenticated %}
+		<p>请注册或登录，以管理您的设备</p>
+		{% else %}
+		<p>您好，{{ user.get_username }}</p>
+		{% endif %}
+
+		<hr class="half-rule">
+		
+		<div class="alert alert-info alert-dismissible fade in shadowed" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<i class="fa fa-fw fa-info-circle"></i> Clearmin uses <a href="http://www.google.com/fonts#ChoosePlace:select/Collection:Roboto">Roboto font</a> by Google Inc. (Apache 2.0) 
+		</div>
+
+		<div class="row">
+			<div class="col-sm-4">
+				<h2>设备总量</h2>
+              	<p>当前系统管理的设备共 {{total_client_num}} 台 </p>
+              	<p><a class="btn btn-default" href="#device_list" role="button">更多 &raquo;</a></p>
+			</div>
+			<div class="col-sm-4">
+				<h2>在线总量</h2>
+              	<p>当前在线设备共 {{total_client_num}} 台 </p>
+              	<p><a class="btn btn-default" href="#device_list" role="button">更多 &raquo;</a></p>
+			</div>
+			<div class="col-sm-4">
+				<h2>接收数据量</h2>
+              	<p>自 {{oldest_msg_time}} 起，接收的数据总量为 {{msg_num}} 条 </p>
+              	<p><a class="btn btn-default" href="#data_graph" role="button">更多 &raquo;</a></p>
+			</div>
+		</div>
+
+		<hr class="half-rule" id="device_list">
+
+		<br>
+		<h2>系统设备列表</h2>
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table class="table table-hover" style="margin-bottom:0">
+					<caption>* 设备标红：近一小时内出现告警</caption>
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>First Name</th>
+							<th>Last Name</th>
+							<th>Username</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="row">1</th>
+							<td>Mark</td>
+							<td>Otto</td>
+							<td>@mdo</td>
+						</tr>
+						<tr>
+							<th scope="row">2</th>
+							<td>Jacob</td>
+							<td>Thornton</td>
+							<td>@fat</td>
+						</tr>
+						<tr>
+							<th scope="row">3</th>
+							<td>Larry</td>
+							<td>the Bird</td>
+							<td>@twitter</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		<br>
+
+		<hr class="half-rule" id="data_graph">
+
+		<br>
+		<h2>接收数据统计</h2>
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table class="table table-hover" style="margin-bottom:0">
+					{% comment %} <caption>with <code>.table-hover</code> only</caption> {% endcomment %}
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>First Name</th>
+							<th>Last Name</th>
+							<th>Username</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="row">1</th>
+							<td>Mark</td>
+							<td>Otto</td>
+							<td>@mdo</td>
+						</tr>
+						<tr>
+							<th scope="row">2</th>
+							<td>Jacob</td>
+							<td>Thornton</td>
+							<td>@fat</td>
+						</tr>
+						<tr>
+							<th scope="row">3</th>
+							<td>Larry</td>
+							<td>the Bird</td>
+							<td>@twitter</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		<br>
+	</div>
+	
+	<footer class="cm-footer"><span class="pull-right">&copy; HSY Inc.</span></footer>
+</div>
+{% endblock %}
