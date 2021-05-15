@@ -1,9 +1,9 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.template import loader
 import datetime
 from django.utils import timezone
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth import authenticate, logout
 from django.contrib.auth import login as auth_login
 from django.contrib import messages
@@ -11,6 +11,7 @@ from django.contrib import messages
 from .models import *
 
 from django_ajax.decorators import ajax
+from django.urls import reverse
 
 
 # Create your views here.
@@ -37,7 +38,17 @@ def index(request):
 	# 	'msg_num': len(msg_list)
 	# }
 	# return HttpResponse(template.render(context, request))
-	return render(request, 'index.html')
+
+	# 从数据库读取当前用户所拥有的设备并返回
+	if request.user.is_authenticated: 
+		device_list = Device.objects.filter(user=request.user).order_by('device_id')
+	else:
+		device_list = None
+	context = {
+		'device_list': device_list,
+	}
+	template = loader.get_template('index.html')
+	return HttpResponse(template.render(context, request))
 
 def login(request):
 	username = request.POST['username']
@@ -111,6 +122,10 @@ def validate_email(request):
 	return JsonResponse(data)
 
 def profile(request):
+	if request.user.is_authenticated: 
+		device_list = Device.objects.filter(user=request.user).order_by('device_id')
+	else:
+		device_list = None
 	info_or_pwd = 0
 	error_msg = ''
 	error_type = 0
@@ -135,6 +150,7 @@ def profile(request):
 			'info_or_pwd': info_or_pwd,
 			'has_error': has_error,
 			'error_msg': error_msg,
+			'device_list': device_list,
 		}
 		template = loader.get_template('profile.html')
 		return HttpResponse(template.render(context, request))
@@ -176,12 +192,111 @@ def profile(request):
 			'has_error': has_error,
 			'error_type': error_type,
 			'error_msg': error_msg,
+			'device_list': device_list,
 		}
 		template = loader.get_template('profile.html')
 		return HttpResponse(template.render(context, request))
-	return render(request, 'profile.html')
+	context = {
+			'device_list': device_list,
+	}
+	return render(request, 'profile.html', context)
 
+def mydevice(request):
+	has_error = False
+	is_saved = False
+	error_msg = ''
+	# 从数据库读取当前用户所拥有的设备并返回
+	if request.user.is_authenticated: 
+		device_list = Device.objects.filter(user=request.user).order_by('device_id')
+		client_list = Client.objects.all().order_by('client_id')
+	else:
+		device_list = None
+		client_list = None
+	# 得到当前用户拥有所有设备的id
+	user_client_id_list = []
+	for device in device_list:
+		user_client_id_list.append(device.client_id)
+	# 处理添加设备的请求
+	if request.method == "POST" and 'client_id' in request.POST and 'device_id' in request.POST and 'device_name' in request.POST:
+		client_id = request.POST['client_id']
+		device_id = request.POST['device_id']
+		device_name = request.POST['device_name']
+		# 当前用户已经拥有该设备
+		if client_id in user_client_id_list:
+			has_error = True
+			error_msg = '您已经拥有该设备，请选择未拥有的设备'
+			context = {
+				'device_list': device_list,
+				'client_list': client_list,
+				'has_error': has_error,
+				'error_msg': error_msg,
+			}
+			template = loader.get_template('mydevice.html')
+			return HttpResponse(template.render(context, request))
+		else:
+			device = Device(
+				device_id = device_id,
+				device_name = device_name,
+				user = request.user,
+				client = Client.objects.get(client_id=client_id)
+			)
+			device.save()
+			is_saved = True
+		# 重新读取当前用户所拥有的设备
+		if request.user.is_authenticated: 
+			device_list = Device.objects.filter(user=request.user).order_by('device_id')
+		else:
+			device_list = None
+	# 处理修改设备信息的请求
+	elif request.method == "POST" and 'client_id_to_edit' in request.POST and 'device_id' in request.POST and 'device_name' in request.POST:
+		client_id_to_edit = request.POST['client_id_to_edit']
+		device_id = request.POST['device_id']
+		device_name = request.POST['device_name']
+		Device.objects.filter(client_id=client_id_to_edit,user=request.user).update(device_id=device_id,device_name=device_name)
+		# 重新读取当前用户所拥有的设备
+		if request.user.is_authenticated: 
+			device_list = Device.objects.filter(user=request.user).order_by('device_id')
+		else:
+			device_list = None
+	context = {
+		'device_list': device_list,
+		'client_list': client_list,
+		'has_error': has_error,
+		'is_saved': is_saved,
+	}
+	template = loader.get_template('mydevice.html')
+	return HttpResponse(template.render(context, request))
 
+def delete_client(request, client_id):
+	user = request.user
+	Device.objects.get(user=user, client=client_id).delete()
+	# 从数据库读取当前用户所拥有的设备并返回
+	if request.user.is_authenticated: 
+		device_list = Device.objects.filter(user=request.user).order_by('device_id')
+		client_list = Client.objects.all().order_by('client_id')
+	else:
+		device_list = None
+		client_list = None
+	context = {
+		'device_list': device_list,
+		'client_list': client_list,
+	}
+	return redirect(reverse('mydevice'), context)
+
+def client(request, client_id):
+	print(client_id)
+	# 从数据库读取当前用户所拥有的设备并返回
+	device_list = Device.objects.filter(user=request.user)
+	# 查看该client_id是否存在
+	try:
+		client = Client.objects.get(client_id=client_id)
+	except Client.DoesNotExist:
+		raise Http404("Client dose not exist")
+	context = {
+		'device_list': device_list,
+		'client': client, 
+	}
+	return render(request, 'client.html', context)
 
 def _is_username_valid(username):
 	# 用户名要求

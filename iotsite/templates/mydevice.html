@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block css %}
+{% comment %} @import url('http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css'); {% endcomment %}
+{% endblock %}
+
+{% block menu_scroller %}
+<ul class="cm-menu-items">
+	<li><a href="{% url 'index' %}" class="sf-house">主页</a></li>
+	<li><a href="{% url 'profile' %}" class="sf-profile">我的账号</a></li>
+	<li class="active"><a href="{% url 'mydevice' %}" class="sf-wrench">我的设备</a></li>
+
+	<li class="cm-submenu">
+		<a class="sf-device-tablet">设备列表<span class="caret"></span></a>
+		<ul>
+		{% for device in device_list %}
+			<li><a href="{% url 'client' device.client_id %}">{{ device.device_id }}: {{ device.device_name }}</a></li>
+		{% empty %}
+			<li><a> 暂无设备</a></li>
+		{% endfor %}
+		</ul>
+	</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<header id="cm-header">
+	<nav class="cm-navbar cm-navbar-primary">
+		<div class="btn btn-primary md-menu-white hidden-md hidden-lg" data-toggle="cm-menu">
+		</div>
+		<div class="cm-flex">
+			<h1>我的设备</h1>
+		</div>
+		<div class="dropdown pull-right">
+			<button class="btn btn-primary md-account-circle-white" data-toggle="dropdown"></button>
+			<ul class="dropdown-menu">
+				<li class="disabled text-center">
+				{% if user.is_authenticated %}
+					<a style="cursor:default;"><strong>{{ user.get_username }}</strong></a>
+				{% else %}
+					<a style="cursor:default;"><strong>游客</strong></a>
+				{% endif %}
+				</li>
+				<li class="divider"></li>
+				{% if not user.is_authenticated %}
+				<li>
+					<a href="{% url 'login' %}"><i class="fa fa-fw fa-user"></i> 登录</a>
+				</li>
+				<li>
+					<a href="{% url 'signup' %}"><i class="fa fa-fw fa-user-plus"></i> 注册</a>
+				</li>
+				{% else %}
+				<li>
+					<a href="{% url 'profile' %}"><i class="fa fa-fw fa-user"></i> 我的账号</a>
+				</li>
+				<li>
+					<a href="{% url 'logout' %}"><i class="fa fa-fw fa-sign-out"></i> 登出</a>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+	</nav>
+</header>
+
+<div id="global">
+	<div class="container-fluid cm-container-white">
+
+	{% if not user.is_authenticated %}
+		<h2 style="margin-top:0;">是不是忘记登录了？</h2> 
+		<p>点击右上角小头像登录吧！</p>
+	{% else %}
+		<h2 style="margin-top:0;">在此管理您的设备</h2>
+		<p>您可以添加、删除设备，或修改您的设备信息</p>
+
+		<hr class="half-rule">
+
+		<div class="panel panel-default">
+			<div class="panel-body">
+				<table class="table table-hover" style="margin-bottom:0">
+					<caption>* 设备ID和设备名称是您可自定义的，但设备MQTT客户端ID不可变（设备固有）</caption>
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>设备ID</th>
+							<th>设备名称</th>
+							<th>设备MQTT客户端ID</th>
+							<th>操作</th>
+						</tr>
+					</thead>
+					<tbody>
+					{% for device in device_list %}
+						<tr>
+							<th scope="row">{{ forloop.counter }}</th>
+							<td>{{ device.device_id }}</td>
+							<td>{{ device.device_name }}</td>
+							<td>{{ device.client.client_id }}</td>
+							<td>
+								{% comment %} <div class="btn-group btn-group-xs" role="group"> {% endcomment %}
+                                    <button type="button" class="btn-xs btn-default tooltip-test" data-toggle="modal" data-placement="top" title="修改设备信息" data-target="#EditModal_{{forloop.counter}}"><i class="fa fa-fw fa-edit"></i></button>
+                                    <a href="{% url 'delete' device.client.client_id %}"><button type="button" class="btn-xs btn-default tooltip-test" data-placement="top" title="删除设备"><i class="fa fa-fw fa-remove"></i></button></a>
+                                {% comment %} </div> {% endcomment %}
+							</td>
+						</tr>
+
+						{% comment %} 修改设备信息的modal {% endcomment %}
+						<div class="modal fade" id="EditModal_{{forloop.counter}}" tabindex="-1" role="dialog" aria-labelledby="EditModal_{{forloop.counter}}_Label">
+						<div class="modal-dialog" role="document">
+							<div class="modal-content">
+							<div class="modal-header">
+								<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+								<h4 class="modal-title" id="EditModal_{{forloop.counter}}_Label">修改设备信息</h4>
+							</div>
+							<div class="modal-body">
+								<form id="edit_form_{{forloop.counter}}" method="POST">
+								{% csrf_token %}
+								<div class="form-group">
+									<label for="client_id_{{forloop.counter}}" class="control-label">设备MQTT客户端ID：</label>
+									<input type="text" class="form-control" id="id_client_id_{{forloop.counter}}" name="client_id_to_edit" value="{{ device.client.client_id }}" disabled="disabled">
+								</div>
+								<div class="form-group">
+									<label for="device_id_{{forloop.counter}}" class="control-label">修改设备ID：</label>
+									<input type="text" class="form-control" id="id_device_id_{{forloop.counter}}" name="device_id" value="{{ device.device_id }}">
+
+									<span class="help-block" style="color: red" id="alert_edit_id_{{forloop.counter}}">
+									</span>
+
+								</div>
+								<div class="form-group">
+									<label for="device_name_{{forloop.counter}}" class="control-label">修改设备名称：</label>
+									<input type="text" class="form-control" id="id_device_name_{{forloop.counter}}" name="device_name" value="{{ device.device_name }}">
+
+									<span class="help-block" style="color: red" id="alert_edit_name_{{forloop.counter}}">
+									</span>
+
+								</div>
+								</form>
+							</div>
+							<div class="modal-footer">
+								<button type="button" onclick="edit_form_close_{{forloop.counter}}()" class="btn btn-default" data-dismiss="modal">关闭</button>
+								<button type="button" onclick="edit_form_submit_{{forloop.counter}}()" class="btn btn-primary">确认修改</button>
+							</div>
+							</div>
+						</div>
+						</div>
+					{% empty %}
+						<tr>
+							<td>暂无设备</td>
+						</tr>
+					{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addDevModal" data-whatever="@mdo">添加设备</button>
+
+		{% comment %} 添加设备的modal {% endcomment %}
+		<div class="modal fade" id="addDevModal" tabindex="-1" role="dialog" aria-labelledby="addDevModalLabel">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<h4 class="modal-title" id="addDevModalLabel">添加设备</h4>
+			</div>
+			<div class="modal-body">
+				<form id="add-dev-form" method="POST">
+				{% csrf_token %}
+				<div class="form-group">
+					<label for="client_id" class="control-label">设备MQTT客户端ID：</label>
+					<select class="form-control" id="id_client_id" name="client_id">
+					{% for client in client_list %}
+						<option>{{ client.client_id }}</option>
+					{% empty %}
+						系统中暂无设备
+					{% endfor %}
+					</select>
+					<span class="help-block" style="color: red" id="alert_add_dev">
+					{{ error_msg }}
+					</span>
+				</div>
+				<div class="form-group">
+					<label for="device_id" class="control-label">给该设备自定义ID：</label>
+					<input type="text" class="form-control" id="id_device_id" name="device_id">
+
+					<span class="help-block" style="color: red" id="alert_add_dev_id">
+					</span>
+
+				</div>
+				<div class="form-group">
+					<label for="device_name" class="control-label">给该设备自定义名称：</label>
+					<input type="text" class="form-control" id="id_device_name" name="device_name">
+
+					<span class="help-block" style="color: red" id="alert_add_dev_name">
+					</span>
+
+				</div>
+
+
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" onclick="add_dev_form_close()" class="btn btn-default" data-dismiss="modal">关闭</button>
+				<button type="button" onclick="add_dev_form_submit()" class="btn btn-primary">确认</button>
+			</div>
+			</div>
+		</div>
+		</div>
+
+	{% endif %}
+	</div>
+	
+	<footer class="cm-footer"><span class="pull-right">&copy; HSY Inc.</span></footer>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/mydevice.js' %}"></script>
+<script>
+{% if has_error %}
+	$('#addDevModal').modal('toggle');
+{% else %}
+{% endif %}
+
+{% for device in device_list %}
+
+function edit_form_submit_{{forloop.counter}}() {
+	if(document.getElementById("id_device_id_{{forloop.counter}}").value.length != 0 && document.getElementById("id_device_name_{{forloop.counter}}").value.length != 0) {
+		$('#id_client_id_{{forloop.counter}}').attr("disabled", false);
+		document.getElementById("edit_form_{{forloop.counter}}").submit();
+		$('#id_client_id_{{forloop.counter}}').attr("disabled", true);
+	}
+	if(document.getElementById("id_device_id_{{forloop.counter}}").value.length == 0) {
+		document.getElementById("alert_edit_id_{{forloop.counter}}").innerHTML = "以上字段不可为空";
+	} else {
+		document.getElementById("alert_edit_id_{{forloop.counter}}").innerHTML = "";
+	}
+
+	if(document.getElementById("id_device_name_{{forloop.counter}}").value.length == 0) {
+		document.getElementById("alert_edit_name_{{forloop.counter}}").innerHTML = "以上字段不可为空";
+	} else {
+		document.getElementById("alert_edit_name_{{forloop.counter}}").innerHTML = "";
+	}
+	
+}
+
+function edit_form_close_{{forloop.counter}}() {
+	document.getElementById("alert_edit_id_{{forloop.counter}}").innerHTML = "";
+	document.getElementById("alert_edit_name_{{forloop.counter}}").innerHTML = "";
+}
+
+
+{% endfor %}
+
+</script>
+{% endblock %}

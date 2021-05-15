@@ -6,28 +6,19 @@
 <ul class="cm-menu-items">
 	<li><a href="{% url 'index' %}" class="sf-house">主页</a></li>
 	<li class="active"><a href="{% url 'profile' %}" class="sf-profile">我的账号</a></li>
-	<li><a href="#" class="sf-wrench">我的设备</a></li>
+	<li><a href="{% url 'mydevice' %}" class="sf-wrench">我的设备</a></li>
 
 	<li class="cm-submenu">
 		<a class="sf-device-tablet">设备列表<span class="caret"></span></a>
 		<ul>
-			<li><a href="#">device 1</a></li>
-			<li><a href="#">device 2</a></li>
-			<li><a href="#">device 3</a></li>
+		{% for device in device_list %}
+			<li><a href="{% url 'client' device.client_id %}">{{ device.device_id }}: {{ device.device_name }}</a></li>
+		{% empty %}
+			<li><a> 暂无设备</a></li>
+		{% endfor %}
 		</ul>
 	</li>
 </ul>
-{% endblock %}
-
-{% block css %}
-<style type="text/css">
-.bio-row {
-    width: 50%;
-    float: left;
-    margin-bottom: 10px;
-    padding:0 15px;
-}
-</style>
 {% endblock %}
 
 {% block content %}
@@ -58,7 +49,7 @@
 				</li>
 				{% else %}
 				<li>
-					<a href="#"><i class="fa fa-fw fa-user"></i> 我的账号</a>
+					<a href="{% url 'profile' %}"><i class="fa fa-fw fa-user"></i> 我的账号</a>
 				</li>
 				<li>
 					<a href="{% url 'logout' %}"><i class="fa fa-fw fa-sign-out"></i> 登出</a>

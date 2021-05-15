@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block menu_scroller %}
+<ul class="cm-menu-items">
+	<li><a href="{% url 'index' %}" class="sf-house">主页</a></li>
+	<li><a href="{% url 'profile' %}" class="sf-profile">我的账号</a></li>
+	<li><a href="{% url 'mydevice' %}" class="sf-wrench">我的设备</a></li>
+
+	<li class="cm-submenu">
+		<a class="sf-device-tablet">设备列表<span class="caret"></span></a>
+		<ul>
+		{% for device in device_list %}
+			<li><a href="{% url 'client' device.client_id %}">{{ device.device_id }}: {{ device.device_name }}</a></li>
+		{% empty %}
+			<li><a> 暂无设备</a></li>
+		{% endfor %}
+		</ul>
+	</li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<header id="cm-header">
+	<nav class="cm-navbar cm-navbar-primary">
+		<div class="btn btn-primary md-menu-white hidden-md hidden-lg" data-toggle="cm-menu">
+		</div>
+		<div class="cm-flex">
+			<div class="cm-breadcrumb-container">
+				<ol class="breadcrumb">
+					<li><a>设备列表</a></li>
+					<li class="active">{{ client.client_id }}</li>
+				</ol>
+			</div>
+		</div>
+		<div class="dropdown pull-right">
+			<button class="btn btn-primary md-account-circle-white" data-toggle="dropdown"></button>
+			<ul class="dropdown-menu">
+				<li class="disabled text-center">
+				{% if user.is_authenticated %}
+					<a style="cursor:default;"><strong>{{ user.get_username }}</strong></a>
+				{% else %}
+					<a style="cursor:default;"><strong>游客</strong></a>
+				{% endif %}
+				</li>
+				<li class="divider"></li>
+				{% if not user.is_authenticated %}
+				<li>
+					<a href="{% url 'login' %}"><i class="fa fa-fw fa-user"></i> 登录</a>
+				</li>
+				<li>
+					<a href="{% url 'signup' %}"><i class="fa fa-fw fa-user-plus"></i> 注册</a>
+				</li>
+				{% else %}
+				<li>
+					<a href="{% url 'profile' %}"><i class="fa fa-fw fa-user"></i> 我的账号</a>
+				</li>
+				<li>
+					<a href="{% url 'logout' %}"><i class="fa fa-fw fa-sign-out"></i> 登出</a>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+	</nav>
+</header>
+
+<div id="global">
+	<div class="container-fluid cm-container-white">
+
+	{% if not user.is_authenticated %}
+		<h2 style="margin-top:0;">是不是忘记登录了？</h2> 
+		<p>点击右上角小头像登录吧！</p>
+	{% else %}
+		<p>这里是 {{ client.client_id }}</p>
+	
+	{% endif %}
+	</div>
+	
+	<footer class="cm-footer"><span class="pull-right">&copy; HSY Inc.</span></footer>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/profile.js' %}"></script>
+<script>
+	{% if has_error and info_or_pwd == 0 %}
+		$('#infoModal').modal('toggle');
+	{% elif has_error and info_or_pwd == 1 %}
+		$('#pwdModal').modal('toggle');
+	{% elif not has_error and info_or_pwd == 1%}
+		alert("密码修改成功！（无需重新登录）");
+	{% endif %}
+</script>
+{% endblock %}
