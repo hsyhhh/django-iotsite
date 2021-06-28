@@ -2,6 +2,9 @@
 
 {% load static %}
 
+{% block css %}
+{% endblock %}
+
 {% block menu_scroller %}
 <ul class="cm-menu-items">
 	<li><a href="{% url 'index' %}" class="sf-house">主页</a></li>
@@ -30,7 +33,7 @@
 			<div class="cm-breadcrumb-container">
 				<ol class="breadcrumb">
 					<li><a>设备列表</a></li>
-					<li class="active">{{ client.client_id }}</li>
+					<li class="active">{{ device.device_id }}: {{ device.device_name }}</li>
 				</ol>
 			</div>
 		</div>
@@ -72,8 +75,125 @@
 		<h2 style="margin-top:0;">是不是忘记登录了？</h2> 
 		<p>点击右上角小头像登录吧！</p>
 	{% else %}
-		<p>这里是 {{ client.client_id }}</p>
-	
+		<h2>{{ device.device_id }}: {{ device.device_name }}</h2>
+
+		<hr class="half-rule">
+		
+		<div class="alert alert-info alert-dismissible fade in shadowed" role="alert" id="is_connected_alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<i class="fa fa-fw fa-info-circle"></i>
+			<p style="display:inline">正在连接 MQTT 服务器...</p>
+		</div>
+
+		<br>
+
+		<div class="row">
+          	<div class="col-lg-3 text-center">
+            	<div class="panel panel-default">
+					<div class="panel-heading">
+						<h3 class="panel-title">告警提示</h3>
+					</div>
+					<div class="panel-body">
+					{% if client.alert %}
+						<span id="device_alert" class="label label-danger" style="min-width: 100px;display: inline-block">告警！</span>
+					{% else %}
+						<span id="device_alert" class="label label-success" style="min-width: 100px;display: inline-block">正常</span>
+					{% endif %}
+					</div>
+				</div>         
+        	</div>
+			<div class="col-lg-3 text-center">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h3 class="panel-title">设备数据</h3>
+					</div>
+					<div id="device_data" class="panel-body">
+						{{ client.value }}
+					</div>
+				</div>         
+			</div>
+			<div class="col-lg-6 text-center">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h3 class="panel-title">设备上报信息</h3>
+					</div>
+					<div id="device_info" class="panel-body">
+						{{ client.info }}
+					</div>
+				</div>
+			</div>       
+        </div><!-- /.row -->
+
+		<hr class="half-rule">
+
+		<br>
+		<h2>设备数据实时变化曲线</h2>
+		<div class="row">
+			<div class="col-lg-12">
+				<div class="panel panel-default">
+					<div class="panel-body">
+						<canvas id="valueChart" width="300" height="150"></canvas>
+					</div>
+				</div>         
+			</div>
+        </div><!-- /.row -->
+
+		<hr class="half-rule">
+
+		<br>
+		<h2>设备位置地图</h2>
+		<div class="row">
+			<div class="col-lg-12 text-center">
+				<div id="container" style="height:auto !important; height:900px; min-height:400px;"></div>
+			</div>
+        </div><!-- /.row -->
+
+		<hr class="half-rule">
+
+		<br>
+		<h2>设备历史数据</h2>
+		<div class="row">
+			<div class="col-lg-12">
+				<div class="panel panel-default">
+					<div class="panel-body">
+						<table class="table table-hover" style="margin-bottom:0" id="history_table">
+							<caption>* 仅显示最近30条数据</caption>
+							<thead>
+								<tr>
+									<th>#</th>
+									<th>时间</th>
+									<th>是否告警</th>
+									<th>监测数值</th>
+									<th>经度</th>
+									<th>纬度</th>
+									<th>附加信息</th>
+								</tr>
+							</thead>
+							<tbody>
+							{% for msg in msg_list %}
+								<tr>
+									<th scope="row">{{ forloop.counter }}</th>
+									<td>{{ msg.time }}</td>
+									<td>{{ msg.alert }}</td>
+									<td>{{ msg.value }}</td>
+									<td>{{ msg.lng }}</td>
+									<td>{{ msg.lat }}</td>
+									<td>{{ msg.info }}</td>
+								</tr>
+							{% empty %}
+								<tr>
+									<td>暂无设备</td>
+								</tr>
+							{% endfor %}
+							</tbody>
+						</table>
+					</div>
+				</div>         
+			</div>
+        </div><!-- /.row -->
+
+		<br>
+
 	{% endif %}
 	</div>
 	
@@ -82,14 +202,221 @@
 {% endblock %}
 
 {% block js %}
-<script src="{% static 'js/profile.js' %}"></script>
+<script type="text/javascript" src="http://api.map.baidu.com/getscript?v=3.0&ak=ZX07WzlTEV6VWDwFsAowDGNh5USgf31k"></script>
+<script src="{% static 'js/chart.min.js' %}"></script>
 <script>
-	{% if has_error and info_or_pwd == 0 %}
-		$('#infoModal').modal('toggle');
-	{% elif has_error and info_or_pwd == 1 %}
-		$('#pwdModal').modal('toggle');
-	{% elif not has_error and info_or_pwd == 1%}
-		alert("密码修改成功！（无需重新登录）");
-	{% endif %}
+{% comment %} setInterval(function () {
+
+    $.ajax({
+        url: '/ajax/clients/',
+		data: {
+			'client_id': "{{ client.client_id }}"
+		},
+		dataType: 'json',
+        success(data){
+        	console.log("success");
+		}
+    });
+},3000); {% endcomment %}
+// django channels
+var socket = new WebSocket('ws://localhost:8000/ws/{{client.client_id}}/');
+
+var ctx = document.getElementById('valueChart').getContext('2d');
+// safe: 标记一个字符串在输出前不需要进一步的 HTML 转义
+var labels = {{ valueChart_labels | safe }};
+var data = {{ valueChart_data | safe }};
+var pos_time_data = {{ pos_time_data | safe }};
+var pos_lng_data = {{ pos_lng_data | safe }};
+var pos_lat_data = {{ pos_lat_data | safe }};
+
+var graphData = {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: '设备数据值',
+            data: data,
+			borderColor: 'rgb(50, 145, 168)',
+            backgroundColor: 'rgb(50, 145, 168)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+		responsive: true,
+		plugins: {
+			legend: {
+				position: 'top',
+			},
+			title: {
+				display: true,
+				text: '设备数据实时变化曲线'
+			},
+		},
+	}
+}
+
+var valueChart = new Chart(ctx, graphData);
+
+var historyTable = document.getElementById('history_table');
+
+var map = new BMap.Map("container");
+var point = new BMap.Point(pos_lng_data[pos_lng_data.length - 1], pos_lat_data[pos_lat_data.length - 1]);
+map.centerAndZoom(point, 15);
+var top_left_control = new BMap.ScaleControl({anchor: BMAP_ANCHOR_TOP_LEFT});// 左上角，添加比例尺
+var top_left_navigation = new BMap.NavigationControl();  //左上角，添加默认缩放平移控件
+map.addControl(top_left_control);     
+map.addControl(top_left_navigation);
+map.enableScrollWheelZoom(true);
+map.enableAutoResize();
+
+// 存储历史轨迹的数组
+var pos_array = new Array();
+// 存储位置对应时间的数组
+var pos_time_array = new Array();
+// 只绘制5个点
+// 对于pos_array,越后面的是越新的数据
+for(var i = 0; i < pos_lat_data.length; i++) {
+	pos_array[i] = new BMap.Point(pos_lng_data[i], pos_lat_data[i]);
+	pos_time_array[i] = pos_time_data[i];
+}
+console.log(pos_time_array);
+// 创建一开始的历史轨迹图
+var polyline = new BMap.Polyline(pos_array, 
+{
+    strokeColor: 'blue',
+    strokeWeight: 3,
+    strokeOpacity: 0
+});
+map.addOverlay(polyline);
+// 创建一开始的标记
+var marker_array = new Array();
+var infoWindow_array = new Array();
+var opts_array = new Array();
+for(var i = 0; i < 5; i++) {
+	marker_array[i] = new BMap.Marker(pos_array[i]);
+	opts_array[i] = {
+		width: 100, height: 50,
+		title: pos_time_array[i]
+	};
+	infoWindow_array[i] = new BMap.InfoWindow('been here', opts_array[i]);
+	marker_array[i].addEventListener('click', function() {
+		map.openInfoWindow(infoWindow_array[i], pos_array[i]);
+	});
+	map.addOverlay(marker_array[i]);
+}
+
+socket.onmessage = function(event) {
+	var data = JSON.parse(event.data);
+	console.log(data);
+	if(data.is_mqtt_connected) {
+		document.querySelector('#is_connected_alert>p').innerHTML = "已连接至 MQTT 服务器，您可以实时监测您的物联网设备了！";
+		document.querySelector('#is_connected_alert').className = "alert alert-success alert-dismissible";
+	} else {
+		document.querySelector('#is_connected_alert>p').innerHTML = "未连接至 MQTT 服务器！";
+		document.querySelector('#is_connected_alert').className = "alert alert-warning alert-dismissible";
+	}
+	console.log(data.clientId);
+	console.log("{{ client.client_id }}");
+	if(data.has_new_msg && data.clientId === "{{ client.client_id }}") {
+		if(data.alert) {
+			document.querySelector('#device_alert').innerHTML = "告警！";
+			document.querySelector('#device_alert').className = "label label-danger";
+		} else {
+			document.querySelector('#device_alert').innerHTML = "正常";
+			document.querySelector('#device_alert').className = "label label-success";
+		}
+		// 数值和报警显示动态变化
+		document.querySelector('#device_data').innerHTML = data.value;
+		document.querySelector('#device_info').innerHTML = data.info;
+		// 设备数据值图动态变化
+		var newGraphData = graphData.data.datasets[0].data;
+		var newGraphLabels = graphData.data.labels;
+		newGraphData.shift();
+		newGraphData.push(data.value);
+		newGraphLabels.shift();
+		newGraphLabels.push(data.time)
+		graphData.data.datasets[0].data = newGraphData;
+		graphData.data.labels = newGraphLabels;
+		valueChart.update();
+		// 地图轨迹动态绘制
+		var new_point = new BMap.Point(data.lng, data.lat);
+		pos_array.push(new_point);
+		pos_array.shift();
+		map.removeOverlay(polyline);
+		polyline = new BMap.Polyline(pos_array, 
+		{
+			strokeColor: 'blue',
+			strokeWeight: 3,
+			strokeOpacity: 0
+		});
+		map.addOverlay(polyline);
+		// map.centerAndZoom(new_point, 15);
+
+		// 更新点标记
+		for(var i = 0; i < 5; i++) {
+			map.removeOverlay(marker_array[i]);
+		}
+		for(var i = 0; i < 5; i++) {
+			var point = pos_array[i];
+			marker_array[i] = new BMap.Marker(point);
+			opts_array[i] = {
+				width: 100, height: 50,
+				title: pos_time_array[i]
+			};
+			infoWindow_array[i] = new BMap.InfoWindow("( " + point.lng + ", " + pos_array[i].lat + " )", opts_array[i]);
+			marker_array[i].addEventListener('click', function() {
+				map.openInfoWindow(infoWindow_array[i], point);
+			});
+			map.addOverlay(marker_array[i]);
+		}
+
+		// 更新历史数据的表格
+		console.log(historyTable.rows[1].cells[0].innerHTML); // 1
+		for(var i = 30; i >= 2; i--) {
+			historyTable.rows[i].cells[0].innerHTML = i;
+			for(var j = 1; j < 7; j++) {
+				var td = historyTable.rows[i].cells[j];
+				var td_prev = historyTable.rows[i-1].cells[j];
+				td.innerHTML = td_prev.innerHTML;
+			}
+		}
+		// 更新第一行,即最新的数据
+		var row = historyTable.rows[1];
+		row.cells[0].innerHTML = 1;
+		row.cells[1].innerHTML = data.origin_time;
+		row.cells[2].innerHTML = data.alert;
+		row.cells[3].innerHTML = data.value;
+		row.cells[4].innerHTML = data.lng;
+		row.cells[5].innerHTML = data.lat;
+		row.cells[6].innerHTML = data.info;
+	}
+};
+
 </script>
+<script src="{% static 'js/client.js' %}"></script>
 {% endblock %}
+
+{% comment %} <script type="text/javascript">
+	// 百度地图API功能
+	var map = new BMap.Map("allmap");
+	map.centerAndZoom(new BMap.Point(116.404, 39.915), 11);
+
+	var top_left_control = new BMap.ScaleControl({anchor: BMAP_ANCHOR_TOP_LEFT});// 左上角，添加比例尺
+	var top_left_navigation = new BMap.NavigationControl();  //左上角，添加默认缩放平移控件
+	var top_right_navigation = new BMap.NavigationControl({anchor: BMAP_ANCHOR_TOP_RIGHT, type: BMAP_NAVIGATION_CONTROL_SMALL}); //右上角，仅包含平移和缩放按钮
+	/*缩放控件type有四种类型:
+	BMAP_NAVIGATION_CONTROL_SMALL：仅包含平移和缩放按钮；BMAP_NAVIGATION_CONTROL_PAN:仅包含平移按钮；BMAP_NAVIGATION_CONTROL_ZOOM：仅包含缩放按钮*/
+	
+	//添加控件和比例尺
+	function add_control(){
+		map.addControl(top_left_control);        
+		map.addControl(top_left_navigation);     
+		map.addControl(top_right_navigation);    
+	}
+	//移除控件和比例尺
+	function delete_control(){
+		map.removeControl(top_left_control);     
+		map.removeControl(top_left_navigation);  
+		map.removeControl(top_right_navigation); 
+	}
+</script> {% endcomment %}

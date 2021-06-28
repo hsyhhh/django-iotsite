@@ -12,6 +12,7 @@ urlpatterns = [
 	path('clients/<client_id>/', views.client, name='client'),
 	url(r'^ajax/validate_username/$', views.validate_username, name='validate_username'),
 	url(r'^ajax/validate_email/$', views.validate_email, name='validate_email'),
+	url(r'^ajax/clients/$', views.client_ajax, name='client_ajax'),
 	path('', views.index, name='index'),
 ]
 

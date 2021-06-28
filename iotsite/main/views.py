@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse, HttpResponseRedirect
 from django.template import loader
-import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth import authenticate, logout
@@ -12,40 +12,75 @@ from .models import *
 
 from django_ajax.decorators import ajax
 from django.urls import reverse
+import json
 
 
 # Create your views here.
 def index(request):
-	# template = loader.get_template('main/index.html')
+	client_list = Client.objects.all().order_by('client_id')
+	online_client_list = []
+	total_client_num = len(client_list)
+	online_client_num = 0
+	now = timezone.now() - timedelta(hours=1)
+	for client in client_list:
+		if client.time >= now:
+			online_client_num += 1
+			online_client_list.append(client)
 
-	# client_list = Client.objects.all()
-	# total_client_num = len(client_list)
-	# online_client_num = 0
-	# now = timezone.now() - datetime.timedelta(hours=1)
-	# for client in client_list:
-	# 	if client.time >= now:
-	# 		online_client_num += 1
-	
-	# msg_list = Message.objects.all()
+	now = timezone.now()
+	now_time = now.strftime("%Y/%m/%d, %H:%M:%S")
 
-	# oldest_msg_time = Message.objects.order_by('time')[0].time
-	# oldest_msg_time = oldest_msg_time.strftime("%Y/%m/%d, %H:%M:%S")
+	msg_list = Message.objects.order_by('time')
+	oldest_msg_time = msg_list[0].time
+	oldest_msg_time = oldest_msg_time.strftime("%Y/%m/%d, %H:%M:%S")
 
-	# context = {
-	# 	'total_client_num': total_client_num,
-	# 	'online_client_num': online_client_num,
-	# 	'oldest_msg_time': oldest_msg_time,
-	# 	'msg_num': len(msg_list)
-	# }
-	# return HttpResponse(template.render(context, request))
+	# 获取msgChart的label列表
+	if now.minute == 0 and now.second == 0:
+		now_ceiling = datetime(year=now.year, month=now.month, day=now.day, hour=now.hour)
+	else:
+		now_ceiling = datetime(year=now.year, month=now.month, day=now.day, hour=now.hour+1)
+	msgChart_labels = []
+	for i in range(25):
+		tmp_time = now_ceiling - timedelta(hours = i)
+		if i == 0:
+			msgChart_labels.append(tmp_time.strftime("%m/%d %H:%M"))
+		elif tmp_time.hour == 0:
+			msgChart_labels.append(tmp_time.strftime("%m/%d %H:%M"))
+		else:
+			msgChart_labels.append(tmp_time.strftime("%H:%M"))
+	msgChart_labels = msgChart_labels[::-1]
+	print(msgChart_labels)
+	json_msgChart_labels = json.dumps(msgChart_labels)
 
 	# 从数据库读取当前用户所拥有的设备并返回
 	if request.user.is_authenticated: 
 		device_list = Device.objects.filter(user=request.user).order_by('device_id')
 	else:
 		device_list = None
+
+	# 从数据库读取过去24小时内每小时接收到的数据量,共24个数据
+	msgChart_data = []
+	pre_tmp_time = now_ceiling
+	for i in range(1, 25):
+		tmp_time = now_ceiling - timedelta(hours = i)
+		tmp_set = msg_list.filter(time__gte=tmp_time).filter(time__lte=pre_tmp_time)
+		msgChart_data.append(len(tmp_set))
+		pre_tmp_time = tmp_time
+	msgChart_data = msgChart_data[::-1]
+	print(msgChart_data)
+	json_msgChart_data = json.dumps(msgChart_data)
+
 	context = {
 		'device_list': device_list,
+		'client_list': client_list,
+		'online_client_list': online_client_list,
+		'total_client_num': total_client_num,
+		'online_client_num': online_client_num,
+		'oldest_msg_time': oldest_msg_time,
+		'msg_num': len(msg_list),
+		'now_time': now_time,
+		'msgChart_labels': json_msgChart_labels,
+		'msgChart_data': json_msgChart_data,
 	}
 	template = loader.get_template('index.html')
 	return HttpResponse(template.render(context, request))
@@ -77,10 +112,10 @@ def signup(request):
 		# 邮箱在系统中不存在,且邮箱符合格式要求
 		is_email_valid = (not User.objects.filter(email__iexact=email).exists()) and _is_email_valid(email)
 		# 密码是否有效,返回值:0,-1,-2
-		is_password_valid = _is_password_valid(password1, password2) == 0
+		is_password_valid = (_is_password_valid(password1, password2) == 0)
 
 		context = {
-			'is_password_valid': is_password_valid,
+			'is_password_valid': _is_password_valid(password1, password2),
 			'username': username,
 			'email': email,
 			'password1': password1,
@@ -92,8 +127,10 @@ def signup(request):
 			if user is not None:
 				auth_login(request, user)
 				user.save()
-			return render(request, 'index.html')
+			# return render(request, 'index.html')
+			return HttpResponseRedirect("/")
 		else:
+			# print(is_password_valid)
 			template = loader.get_template('signup.html')
 			return HttpResponse(template.render(context, request))
 	else:
@@ -214,8 +251,9 @@ def mydevice(request):
 		client_list = None
 	# 得到当前用户拥有所有设备的id
 	user_client_id_list = []
-	for device in device_list:
-		user_client_id_list.append(device.client_id)
+	if device_list is not None:
+		for device in device_list:
+			user_client_id_list.append(device.client_id)
 	# 处理添加设备的请求
 	if request.method == "POST" and 'client_id' in request.POST and 'device_id' in request.POST and 'device_name' in request.POST:
 		client_id = request.POST['client_id']
@@ -284,7 +322,7 @@ def delete_client(request, client_id):
 	return redirect(reverse('mydevice'), context)
 
 def client(request, client_id):
-	print(client_id)
+	# print(client_id)
 	# 从数据库读取当前用户所拥有的设备并返回
 	device_list = Device.objects.filter(user=request.user)
 	# 查看该client_id是否存在
@@ -292,11 +330,62 @@ def client(request, client_id):
 		client = Client.objects.get(client_id=client_id)
 	except Client.DoesNotExist:
 		raise Http404("Client dose not exist")
+	for device in device_list:
+		if device.client.client_id == client_id:
+			this_device = device
+	# 得到当前时间
+	now = timezone.now()
+	now_time = now.strftime("%Y/%m/%d, %H:%M:%S")
+	# 得到该设备最近30条的数据,index为0的是最新数据
+	msg_list = Message.objects.filter(client_id=client_id).order_by('time')[::-1][:30]
+	for i in range(len(msg_list)):
+		msg_list[i].lng = round(msg_list[i].lng, 3)
+		msg_list[i].lat = round(msg_list[i].lat, 3)
+
+	# 得到该设备最近16条的数据,用来绘制数值变化曲线,index为0是最老的数据
+	msg_value_list = msg_list[:16][::-1]
+	# 得到该设备近16条数据的时间和值
+	valueChart_labels = []
+	valueChart_data = []
+	for msg in msg_value_list:
+		valueChart_labels.append(msg.time.strftime("%H:%M:%S"))
+		valueChart_data.append(msg.value)
+	
+	# 得到该设备近5条数据,用来在地图显示历史轨迹,index为0是最老的数据
+	msg_pos_list = msg_list[:5][::-1]
+	# 得到该设备近5条数据的时间和经纬度
+	pos_time_data = []
+	pos_lng_data = []
+	pos_lat_data = []
+	for msg in msg_pos_list:
+		pos_time_data.append(msg.time.strftime("%H:%M:%S"))
+		pos_lng_data.append(msg.lng)
+		pos_lat_data.append(msg.lat)
+	
+	for i in range(len(msg_list)):
+		msg_list[i].time = str(msg_list[i].time)
+
 	context = {
 		'device_list': device_list,
 		'client': client, 
+		'device': this_device,
+		'now_time': now_time,
+		'valueChart_labels': valueChart_labels,
+		'valueChart_data': valueChart_data,
+		'pos_time_data': pos_time_data,
+		'pos_lng_data': pos_lng_data,
+		'pos_lat_data': pos_lat_data,
+		'msg_list': msg_list,
 	}
 	return render(request, 'client.html', context)
+
+def client_ajax(request):
+	client_id = request.GET.get('client_id', None)
+	print(client_id)
+	data = {
+		'hello': 1
+	}
+	return JsonResponse(data)
 
 def _is_username_valid(username):
 	# 用户名要求

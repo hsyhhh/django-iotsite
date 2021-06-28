@@ -1,7 +1,10 @@
 from django.urls import path
 
-from .consumers import WSConsumer
+from .consumers import indexWSConsumer, clientWSConsumer
+
+from django.conf.urls import url
 
 ws_urlpatterns = [
-	path('ws/some_url/', WSConsumer.as_asgi())
+	path('ws/index/', indexWSConsumer.as_asgi()),
+	path('ws/<client_id>/', clientWSConsumer.as_asgi()),
 ]

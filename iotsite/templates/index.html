@@ -71,25 +71,26 @@
 
 		<hr class="half-rule">
 		
-		<div class="alert alert-info alert-dismissible fade in shadowed" role="alert">
+		<div class="alert alert-info alert-dismissible fade in shadowed" role="alert" id="is_connected_alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<i class="fa fa-fw fa-info-circle"></i> Clearmin uses <a href="http://www.google.com/fonts#ChoosePlace:select/Collection:Roboto">Roboto font</a> by Google Inc. (Apache 2.0) 
+			<i class="fa fa-fw fa-info-circle"></i>
+			<p style="display:inline">正在连接 MQTT 服务器...</p>
 		</div>
 
 		<div class="row">
 			<div class="col-sm-4">
 				<h2>设备总量</h2>
-              	<p>当前系统管理的设备共 {{total_client_num}} 台 </p>
+              	<p>当前系统管理的设备共 {{ total_client_num }} 台 </p>
               	<p><a class="btn btn-default" href="#device_list" role="button">更多 &raquo;</a></p>
 			</div>
 			<div class="col-sm-4">
 				<h2>在线总量</h2>
-              	<p>当前在线设备共 {{total_client_num}} 台 </p>
+              	<p>当前在线设备共 {{ online_client_num }} 台 </p>
               	<p><a class="btn btn-default" href="#device_list" role="button">更多 &raquo;</a></p>
 			</div>
 			<div class="col-sm-4">
 				<h2>接收数据量</h2>
-              	<p>自 {{oldest_msg_time}} 起，接收的数据总量为 {{msg_num}} 条 </p>
+              	<p>自 {{ oldest_msg_time }} 起，接收的数据总量为 {{ msg_num }} 条 </p>
               	<p><a class="btn btn-default" href="#data_graph" role="button">更多 &raquo;</a></p>
 			</div>
 		</div>
@@ -100,35 +101,39 @@
 		<h2>系统设备列表</h2>
 		<div class="panel panel-default">
 			<div class="panel-body">
+				<p style="color:gray">* 设备标红：近一小时内出现告警；数据采集时间：{{now_time}}</p>
 				<table class="table table-hover" style="margin-bottom:0">
-					<caption>* 设备标红：近一小时内出现告警</caption>
 					<thead>
 						<tr>
 							<th>#</th>
-							<th>First Name</th>
-							<th>Last Name</th>
-							<th>Username</th>
+							<th>设备MQTT客户端ID</th>
+							<th>是否在线</th>
+							<th>上次上报的时间</th>
 						</tr>
 					</thead>
 					<tbody>
+					{% for client in client_list %}
+					{% if client.alert %}
+						<tr class="danger">
+					{% else %}
 						<tr>
-							<th scope="row">1</th>
-							<td>Mark</td>
-							<td>Otto</td>
-							<td>@mdo</td>
+					{% endif %}
+							<th scope="row">{{ forloop.counter }}</th>
+							<td>{{ client.client_id }}</td>
+							<td>
+							{% if client in online_client_list %}
+								是
+							{% else %}
+								否
+							{% endif %}
+							</td>
+							<td>{{client.time}}</td>
 						</tr>
+					{% empty %}
 						<tr>
-							<th scope="row">2</th>
-							<td>Jacob</td>
-							<td>Thornton</td>
-							<td>@fat</td>
+							<td>暂无设备</td>
 						</tr>
-						<tr>
-							<th scope="row">3</th>
-							<td>Larry</td>
-							<td>the Bird</td>
-							<td>@twitter</td>
-						</tr>
+					{% endfor %}
 					</tbody>
 				</table>
 			</div>
@@ -141,37 +146,8 @@
 		<h2>接收数据统计</h2>
 		<div class="panel panel-default">
 			<div class="panel-body">
-				<table class="table table-hover" style="margin-bottom:0">
-					{% comment %} <caption>with <code>.table-hover</code> only</caption> {% endcomment %}
-					<thead>
-						<tr>
-							<th>#</th>
-							<th>First Name</th>
-							<th>Last Name</th>
-							<th>Username</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<th scope="row">1</th>
-							<td>Mark</td>
-							<td>Otto</td>
-							<td>@mdo</td>
-						</tr>
-						<tr>
-							<th scope="row">2</th>
-							<td>Jacob</td>
-							<td>Thornton</td>
-							<td>@fat</td>
-						</tr>
-						<tr>
-							<th scope="row">3</th>
-							<td>Larry</td>
-							<td>the Bird</td>
-							<td>@twitter</td>
-						</tr>
-					</tbody>
-				</table>
+				<p style="color:gray">* 手机端需横屏查看；数据采集时间：{{now_time}}</p>
+				<canvas id="msgChart" width="990" height="200"></canvas>
 			</div>
 		</div>
 		<br>
@@ -179,4 +155,41 @@
 	
 	<footer class="cm-footer"><span class="pull-right">&copy; HSY Inc.</span></footer>
 </div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/chart.min.js' %}"></script>
+<script src="{% static 'js/index.js' %}"></script>
+<script>
+var ctx = document.getElementById('msgChart').getContext('2d');
+
+var graphData = {
+    type: 'bar',
+    data: {
+        labels: {{ msgChart_labels | safe }},
+        datasets: [{
+            label: '# of messages',
+            data: {{ msgChart_data | safe }},
+            backgroundColor: [
+                'rgba(73, 198, 230, 0.5)',
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+		responsive: true,
+		plugins: {
+			legend: {
+				position: 'top',
+			},
+			title: {
+				display: true,
+				text: '近二十四小时接收数据量统计图'
+			},
+		},
+	}
+}
+
+var myChart = new Chart(ctx, graphData);
+</script>
 {% endblock %}
